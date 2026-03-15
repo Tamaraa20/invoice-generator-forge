@@ -157,7 +157,7 @@ if (authForm) {
         } else {
            alert("Signup complete. Check your email or try logging in.");
            closeModal();
-         }
+        }
       }
     } else {
       const { error } = await supabaseClient.auth.signInWithPassword({ email, password });

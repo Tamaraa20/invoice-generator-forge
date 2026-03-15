@@ -61,15 +61,15 @@ const InvoiceForm = (() => {
         const filePath = `company-logos/${fileName}`;
 
         const { data, error } = await supabaseClient.storage
-           .from('logos')
-           .upload(filePath, file);
+          .from('logos')
+          .upload(filePath, file);
 
         if (error) throw error;
 
         // Get public URL
         const { data: { publicUrl } } = supabaseClient.storage
-           .from('logos')
-           .getPublicUrl(filePath);
+          .from('logos')
+          .getPublicUrl(filePath);
 
         uploadedLogoUrl = publicUrl;
         console.log('Logo uploaded to Supabase:', uploadedLogoUrl);
