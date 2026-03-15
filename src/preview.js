@@ -1,145 +1,144 @@
-// src/preview.js
-export function renderPreview(data) {
-  const container = document.getElementById('invoice-preview');
-  if (!container) return;
+/* ══════════════════════════════════════════════════════════
+   InvoiceForge — Live Preview Renderer
+   Renders a real-time invoice preview from form data
+   ══════════════════════════════════════════════════════════ */
 
-  const { company, client, invoice, items, totals } = data;
-  const currencySymbol = getCurrencySymbol(invoice.currency);
+const InvoicePreview = (() => {
+  const currencySymbols = {
+    USD: '$', EUR: '€', GBP: '£', JPY: '¥', CAD: 'C$', AUD: 'A$'
+  };
 
-  container.innerHTML = `
-    <div style="font-family: 'Inter', sans-serif; color: #1e293b; height: 100%; display: flex; flex-direction: column;">
-      
+  function fmt(amount, currency) {
+    const sym = currencySymbols[currency] || '$';
+    return `${sym}${amount.toFixed(2)}`;
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+
+  function formatDisplayDate(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  function update() {
+    const data = InvoiceForm.getFormData();
+    const container = document.getElementById('invoice-preview');
+    const cur = data.invoice.currency;
+
+    const itemsHtml = data.items.map(item => `
+      <tr>
+        <td>${escapeHtml(item.description) || '<span style="color:#cbd5e1;font-style:italic">No description</span>'}</td>
+        <td>${item.quantity}</td>
+        <td>${fmt(item.price, cur)}</td>
+        <td>${fmt(item.quantity * item.price, cur)}</td>
+      </tr>
+    `).join('');
+
+    const logoHtml = data.company.hasLogo
+      ? `<img src="${data.company.logoSrc}" alt="Company logo" />`
+      : '';
+
+    const companyDetailParts = [
+      data.company.address,
+      data.company.email,
+      data.company.phone
+    ].filter(Boolean);
+
+    const clientDetailParts = [
+      data.client.company,
+      data.client.address,
+      data.client.email,
+      data.client.phone
+    ].filter(Boolean);
+
+    container.innerHTML = `
       <!-- Header -->
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px;">
-        <div>
-          ${company.logo ? `<img src="${company.logo}" alt="Logo" style="max-height: 60px; max-width: 180px; margin-bottom: 15px; display: block;">` : ''}
-          <h1 style="font-size: 24px; font-weight: 800; color: #0f172a; margin: 0;">INVOICE</h1>
-          <p style="color: #64748b; font-size: 14px; margin-top: 4px;">#${invoice.number || '---'}</p>
+      <div class="inv-header">
+        <div class="inv-brand">
+          ${logoHtml}
+          <div class="inv-company-name">${escapeHtml(data.company.name) || 'Your Company'}</div>
+          <div class="inv-company-detail">${companyDetailParts.map(p => escapeHtml(p)).join('<br>') || 'Company details'}</div>
         </div>
-        <div style="text-align: right;">
-          <h2 style="font-size: 16px; font-weight: 700; margin: 0;">${company.name || 'Your Company'}</h2>
-          <p style="font-size: 13px; color: #64748b; white-space: pre-line; margin-top: 5px;">${company.address || ''}</p>
-          <p style="font-size: 13px; color: #64748b;">${company.email || ''}</p>
-          <p style="font-size: 13px; color: #64748b;">${company.phone || ''}</p>
+        <div class="inv-title-block">
+          <div class="inv-title">INVOICE</div>
+          <div class="inv-meta">
+            <strong>#</strong> ${escapeHtml(data.invoice.number) || 'INV-000'}<br>
+            <strong>Date:</strong> ${formatDisplayDate(data.invoice.date)}<br>
+            <strong>Due:</strong> ${formatDisplayDate(data.invoice.dueDate)}
+          </div>
         </div>
       </div>
 
-      <!-- Info Grid -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px;">
+      <!-- Parties -->
+      <div class="inv-parties">
         <div>
-          <h3 style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px;">Bill To</h3>
-          <p style="font-size: 15px; font-weight: 700; margin: 0;">${client.name || 'Client Name'}</p>
-          <p style="font-size: 14px; color: #64748b; margin: 2px 0;">${client.company || ''}</p>
-          <p style="font-size: 13px; color: #64748b; white-space: pre-line;">${client.address || ''}</p>
+          <div class="inv-party-label">Bill To</div>
+          <div class="inv-party-name">${escapeHtml(data.client.name) || 'Client Name'}</div>
+          <div class="inv-party-detail">${clientDetailParts.map(p => escapeHtml(p)).join('<br>') || 'Client details'}</div>
         </div>
-        <div style="text-align: right;">
-          <div style="margin-bottom: 10px;">
-             <span style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Date:</span>
-             <span style="font-size: 14px; margin-left: 8px;">${formatDate(invoice.date)}</span>
-          </div>
-          <div>
-             <span style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Due Date:</span>
-             <span style="font-size: 14px; margin-left: 8px; font-weight: 600;">${formatDate(invoice.dueDate)}</span>
-          </div>
+        <div>
+          <div class="inv-party-label">From</div>
+          <div class="inv-party-name">${escapeHtml(data.company.name) || 'Your Company'}</div>
+          <div class="inv-party-detail">${companyDetailParts.map(p => escapeHtml(p)).join('<br>') || 'Company details'}</div>
         </div>
       </div>
 
       <!-- Items Table -->
-      <div style="flex: 1;">
-        <table style="width: 100%; border-collapse: collapse;">
-          <thead>
-            <tr style="border-bottom: 2px solid #f1f5f9;">
-              <th style="padding: 12px 0; text-align: left; font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Description</th>
-              <th style="padding: 12px 10px; text-align: center; font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; width: 60px;">Qty</th>
-              <th style="padding: 12px 10px; text-align: right; font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; width: 100px;">Price</th>
-              <th style="padding: 12px 0; text-align: right; font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; width: 100px;">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${items.map(item => `
-              <tr style="border-bottom: 1px solid #f1f5f9;">
-                <td style="padding: 15px 0; font-size: 14px;">${item.description || 'New Item'}</td>
-                <td style="padding: 15px 10px; font-size: 14px; text-align: center;">${item.quantity}</td>
-                <td style="padding: 15px 10px; font-size: 14px; text-align: right;">${formatCurrency(item.price, invoice.currency)}</td>
-                <td style="padding: 15px 0; font-size: 14px; font-weight: 600; text-align: right;">${formatCurrency(item.quantity * item.price, invoice.currency)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
+      <table class="inv-table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th>Qty</th>
+            <th>Price</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsHtml || '<tr><td colspan="4" style="text-align:center;color:#cbd5e1;padding:20px;">No items added</td></tr>'}
+        </tbody>
+      </table>
 
-      <!-- Footer Summary -->
-      <div style="margin-top: 40px; display: flex; justify-content: flex-end;">
-        <div style="width: 240px;">
-          <div style="display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; color: #64748b;">
-            <span>Subtotal</span>
-            <span>${formatCurrency(totals.subtotal, invoice.currency)}</span>
-          </div>
-          ${totals.taxAmount > 0 ? `
-            <div style="display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; color: #64748b;">
-              <span>Tax (${totals.taxRate}%)</span>
-              <span>${formatCurrency(totals.taxAmount, invoice.currency)}</span>
-            </div>
-          ` : ''}
-          ${totals.discountAmount > 0 ? `
-            <div style="display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; color: #64748b;">
-              <span>Discount (${totals.discountRate}%)</span>
-              <span style="color: #f43f5e;">-${formatCurrency(totals.discountAmount, invoice.currency)}</span>
-            </div>
-          ` : ''}
-          <div style="display: flex; justify-content: space-between; padding: 15px 0; margin-top: 10px; border-top: 2px solid #f1f5f9; font-size: 18px; font-weight: 800; color: #0f172a;">
-            <span>Total</span>
-            <span>${formatCurrency(totals.total, invoice.currency)}</span>
-          </div>
+      <!-- Totals -->
+      <div class="inv-totals">
+        <div class="inv-total-row">
+          <span>Subtotal</span>
+          <span>${fmt(data.summary.subtotal, cur)}</span>
+        </div>
+        ${data.summary.taxRate > 0 ? `
+        <div class="inv-total-row">
+          <span>Tax (${data.summary.taxRate}%)</span>
+          <span>${fmt(data.summary.taxAmount, cur)}</span>
+        </div>` : ''}
+        ${data.summary.discountRate > 0 ? `
+        <div class="inv-total-row">
+          <span>Discount (${data.summary.discountRate}%)</span>
+          <span>–${fmt(data.summary.discountAmount, cur)}</span>
+        </div>` : ''}
+        <div class="inv-total-divider"></div>
+        <div class="inv-total-row inv-grand-total">
+          <span>Total</span>
+          <span>${fmt(data.summary.total, cur)}</span>
         </div>
       </div>
 
-      <!-- Notes -->
-      ${invoice.notes || invoice.terms ? `
-        <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #f1f5f9;">
-          ${invoice.notes ? `
-            <div style="margin-bottom: 15px;">
-              <h4 style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">Notes</h4>
-              <p style="font-size: 12px; color: #64748b; line-height: 1.6; white-space: pre-line;">${invoice.notes}</p>
-            </div>
-          ` : ''}
-          ${invoice.terms ? `
-            <div>
-              <h4 style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">Terms & Conditions</h4>
-              <p style="font-size: 12px; color: #64748b; line-height: 1.6; white-space: pre-line;">${invoice.terms}</p>
-            </div>
-          ` : ''}
-        </div>
-      ` : ''}
+      <!-- Footer -->
+      ${data.notes ? `
+      <div class="inv-footer">
+        <div class="inv-footer-label">Notes</div>
+        <div class="inv-footer-text">${escapeHtml(data.notes).replace(/\n/g, '<br>')}</div>
+      </div>` : ''}
+      ${data.terms ? `
+      <div class="inv-footer">
+        <div class="inv-footer-label">Payment Terms</div>
+        <div class="inv-footer-text">${escapeHtml(data.terms).replace(/\n/g, '<br>')}</div>
+      </div>` : ''}
+    `;
+  }
 
-    </div>
-  `;
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return '---';
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  });
-}
-
-function formatCurrency(amount, currency) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency || 'USD'
-  }).format(amount);
-}
-
-function getCurrencySymbol(currency) {
-  const symbols = {
-    'USD': '$',
-    'EUR': '€',
-    'GBP': '£',
-    'JPY': '¥',
-    'CAD': 'C$',
-    'AUD': 'A$'
-  };
-  return symbols[currency] || '$';
-}
+  return { update };
+})();

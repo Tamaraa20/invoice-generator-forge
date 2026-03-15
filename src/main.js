@@ -1,34 +1,34 @@
-// src/main.js
-import { initForm } from './form.js';
-import { generatePDF } from './pdf.js';
+/* ══════════════════════════════════════════════════════════
+   InvoiceForge — Main Entry Point
+   Initializes all modules on DOM ready
+   ══════════════════════════════════════════════════════════ */
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('InvoiceForge initialized');
-    
-    // Initialize Form and Preview
-    initForm();
+  // Initialize form (accordion, logo upload, line items, summary)
+  InvoiceForm.init();
 
-    // PDF Generation
-    const btnGenerate = document.getElementById('btn-generate-pdf');
-    btnGenerate?.addEventListener('click', async () => {
-        btnGenerate.disabled = true;
-        const originalText = btnGenerate.querySelector('span').textContent;
-        btnGenerate.querySelector('span').textContent = 'Generating...';
-        
-        try {
-            await generatePDF();
-        } catch (error) {
-            console.error('PDF Generation failed:', error);
-            alert('Failed to generate PDF. Please try again.');
-        } finally {
-            btnGenerate.disabled = false;
-            btnGenerate.querySelector('span').textContent = originalText;
+  // Initial preview render
+  InvoicePreview.update();
+
+  // Generate PDF button
+  document.getElementById('btn-generate-pdf').addEventListener('click', () => {
+    InvoicePDF.generate();
+  });
+
+  // Intersection Observer for scroll-triggered animations
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.style.animationPlayState = 'running';
+          observer.unobserve(entry.target);
         }
-    });
+      });
+    },
+    { threshold: 0.1 }
+  );
 
-    // Add subtle reveal animations
-    const sections = document.querySelectorAll('.form-section');
-    sections.forEach((s, i) => {
-        s.style.setProperty('--delay', i);
-    });
+  document.querySelectorAll('.animate-in').forEach(el => {
+    observer.observe(el);
+  });
 });
