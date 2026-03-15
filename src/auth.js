@@ -1,192 +1,175 @@
 // src/auth.js
-/* ══════════════════════════════════════════════════════════
-   InvoiceForge — Authentication Logic
-   ══════════════════════════════════════════════════════════ */
+const { createClient } = supabase;
 
-// supabaseClient is available globally from src/supabase.js
-
-// UI Elements
-const btnLoginNav = document.getElementById('btn-login');
-const btnLogoutNav = document.getElementById('btn-logout');
-const userProfile = document.getElementById('user-profile');
-const userEmailDisplay = document.getElementById('user-email');
-const appContainer = document.getElementById('app');
-const authModal = document.getElementById('auth-modal');
-const authClose = document.getElementById('auth-close');
-const authForm = document.getElementById('auth-form');
-const authEmailInput = document.getElementById('auth-email');
-const authPassInput = document.getElementById('auth-password');
-const btnAuthSubmit = document.getElementById('btn-auth-submit');
-const btnAuthToggle = document.getElementById('btn-auth-toggle'); // Note: Initially null until injected
-const btnGoogleAuth = document.getElementById('btn-google-auth');
-const authTitle = document.getElementById('auth-title');
-const authSubDesc = document.getElementById('auth-sub-desc');
-const authFooter = document.getElementById('auth-footer');
-const authError = document.getElementById('auth-error');
-
-let isSignUpMode = false;
-
-// Check current session on load
-checkSession();
-
-// Listen for auth state changes
-supabaseClient.auth.onAuthStateChange((event, session) => {
-  updateUI(session?.user);
-});
-
-async function checkSession() {
-  const { data: { session }, error } = await supabaseClient.auth.getSession();
-  if (session) {
-    updateUI(session.user);
-  } else {
-    updateUI(null);
-  }
-}
-
+/**
+ * Main updateUI function that handles the gatekeeper logic
+ */
 function updateUI(user) {
+  const loginBtn = document.getElementById('btn-login');
+  const logoutBtn = document.getElementById('btn-logout');
+  const userProfile = document.getElementById('user-profile');
+  const userEmail = document.getElementById('user-email');
+  const appContainer = document.getElementById('app');
+  const newInvoiceBtn = document.getElementById('btn-new-invoice');
+
   if (user) {
-    if (appContainer) appContainer.style.display = 'grid';
-    if (btnLoginNav) btnLoginNav.style.display = 'none';
+    // ─── USER IS LOGGED IN ───
+    if (loginBtn) loginBtn.classList.add('hidden');
+    if (logoutBtn) logoutBtn.classList.remove('hidden');
     if (userProfile) {
       userProfile.classList.remove('hidden');
       userProfile.style.display = 'flex';
     }
-    if (userEmailDisplay) userEmailDisplay.textContent = user.email;
-    if (authClose) authClose.style.display = 'block';
-    closeModal();
+    if (userEmail) userEmail.textContent = user.email;
+    
+    // Show the main application source
+    if (appContainer) {
+      appContainer.style.display = 'grid'; // Restore grid layout
+    }
+    
+    // Show the "New" button in navbar
+    if (newInvoiceBtn) {
+      newInvoiceBtn.style.display = 'flex';
+    }
+
+    // Modal can be closed if user is logged in
+    // But usually you'd want to close it automatically after success
   } else {
-    if (appContainer) appContainer.style.display = 'none';
-    if (btnLoginNav) btnLoginNav.style.display = 'flex';
+    // ─── NO USER LOGGED IN ───
+    if (loginBtn) loginBtn.classList.remove('hidden');
+    if (logoutBtn) logoutBtn.classList.add('hidden');
     if (userProfile) {
       userProfile.classList.add('hidden');
       userProfile.style.display = 'none';
     }
-    if (userEmailDisplay) userEmailDisplay.textContent = '';
-    if (authClose) authClose.style.display = 'none';
+    
+    // Hide the main application (Gatekeeper)
+    if (appContainer) {
+      appContainer.style.display = 'none';
+    }
+    
+    // Hide the "New" button (Gatekeeper)
+    if (newInvoiceBtn) {
+      newInvoiceBtn.style.display = 'none';
+    }
+
+    // Since we want the login page to show up first,
+    // we force open the modal if no session exists.
     openModal();
   }
 }
 
-// Modal logic
+// ─── Session Management ───
+supabaseClient.auth.onAuthStateChange((event, session) => {
+  console.log('Auth event:', event, session);
+  updateUI(session?.user || null);
+  
+  if (event === 'SIGNED_IN') {
+    closeModal();
+  }
+});
+
+// Initial check
+supabaseClient.auth.getSession().then(({ data: { session } }) => {
+  updateUI(session?.user || null);
+});
+
+// ─── Auth Actions ───
+const authModal = document.getElementById('auth-modal');
+const authForm = document.getElementById('auth-form');
+const authTitle = document.getElementById('auth-title');
+const authToggleLink = document.getElementById('btn-auth-toggle');
+const authSubmitBtn = document.getElementById('btn-auth-submit');
+const authError = document.getElementById('auth-error');
+const authClose = document.getElementById('auth-close');
+const googleAuthBtn = document.getElementById('btn-google-auth');
+
+let isSignUp = false;
+
 function openModal() {
   if (authModal) {
-    authModal.classList.add('visible');
-    if (authError) authError.textContent = '';
-    if (authForm) authForm.reset();
+    authModal.classList.add('active');
+    authError.textContent = '';
+    authForm.reset();
   }
 }
 
 async function closeModal() {
+  // Gatekeeper: only allow closing if user is authenticated
   const { data: { session } } = await supabaseClient.auth.getSession();
-  if (authModal && session) {
-    authModal.classList.remove('visible');
-  }
-}
-
-if (btnLoginNav) {
-  btnLoginNav.addEventListener('click', (e) => {
-    e.preventDefault();
-    isSignUpMode = false;
-    updateModalMode();
-    openModal();
-  });
-}
-
-if (authClose) {
-  authClose.addEventListener('click', closeModal);
-}
-
-if (authModal) {
-  authModal.addEventListener('click', (e) => {
-    if (e.target === authModal) closeModal();
-  });
-}
-
-if (btnAuthToggle) {
-  btnAuthToggle.addEventListener('click', () => {
-    isSignUpMode = !isSignUpMode;
-    updateModalMode();
-  });
-}
-
-function updateModalMode() {
-  if (authError) authError.textContent = '';
-  if (isSignUpMode) {
-    if (authTitle) authTitle.textContent = 'Create an Account';
-    if (btnAuthSubmit) btnAuthSubmit.innerHTML = 'Sign Up';
-    if (authSubDesc) authSubDesc.textContent = 'Sign up to start creating invoices';
-    if (authFooter) authFooter.innerHTML = "Already have an account? <span class=\"auth-toggle-link\" id=\"btn-auth-toggle\">Sign In</span>";
+  if (session && authModal) {
+    authModal.classList.remove('active');
   } else {
-    if (authTitle) authTitle.textContent = 'Welcome Back';
-    if (btnAuthSubmit) btnAuthSubmit.innerHTML = 'Sign In';
-    if (authSubDesc) authSubDesc.textContent = 'Sign in to access your invoices';
-    if (authFooter) authFooter.innerHTML = "Don't have an account? <span class=\"auth-toggle-link\" id=\"btn-auth-toggle\">Sign Up</span>";
+    console.warn('Cannot close login modal without an active session.');
   }
+}
+
+function toggleAuthMode() {
+  isSignUp = !isSignUp;
+  authTitle.textContent = isSignUp ? 'Create Account' : 'Welcome Back';
+  authSubmitBtn.textContent = isSignUp ? 'Sign Up' : 'Sign In';
+  authToggleLink.textContent = isSignUp ? 'Sign In' : 'Sign Up';
+  authError.textContent = '';
+}
+
+authForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('auth-email').value;
+  const password = document.getElementById('auth-password').value;
   
-  // Re-attach listener to the newly injected toggle span
-  const newToggle = document.getElementById('btn-auth-toggle');
-  if (newToggle) {
-    newToggle.addEventListener('click', () => {
-      isSignUpMode = !isSignUpMode;
-      updateModalMode();
-    });
-  }
-}
+  authSubmitBtn.disabled = true;
+  authSubmitBtn.textContent = isSignUp ? 'Creating...' : 'Signing In...';
+  authError.textContent = '';
 
-// Form submission (Email/Password)
-if (authForm) {
-  authForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = authEmailInput.value;
-    const password = authPassInput.value;
-
-    authError.textContent = '';
-    btnAuthSubmit.disabled = true;
-
-    if (isSignUpMode) {
-      const { data, error } = await supabaseClient.auth.signUp({ email, password });
-      if (error) {
-        authError.textContent = error.message;
-      } else {
-        // usually successful signup requires email confirmation, so inform user
-        if (data?.user?.identities?.length === 0) {
-           authError.textContent = 'Account exists or error occurred.';
-        } else {
-           alert("Signup complete. Check your email or try logging in.");
-           closeModal();
-        }
-      }
+  try {
+    let result;
+    if (isSignUp) {
+      result = await supabaseClient.auth.signUp({ email, password });
     } else {
-      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-      if (error) {
-        authError.textContent = error.message;
-      } else {
-        closeModal();
-      }
+      result = await supabaseClient.auth.signInWithPassword({ email, password });
     }
-    btnAuthSubmit.disabled = false;
-  });
-}
 
-// Logout
-if (btnLogoutNav) {
-  btnLogoutNav.addEventListener('click', async () => {
-    const { error } = await supabaseClient.auth.signOut();
-    if (error) console.error('Error signing out:', error.message);
-  });
-}
+    if (result.error) throw result.error;
+    
+    if (isSignUp && result.data?.user?.identities?.length === 0) {
+      authError.textContent = "This email is already registered.";
+    } else if (isSignUp) {
+      authError.style.color = '#34d399';
+      authError.textContent = "Success! Please check your email to confirm.";
+    }
 
-// Google Auth
-if (btnGoogleAuth) {
-  btnGoogleAuth.addEventListener('click', async () => {
+  } catch (error) {
+    authError.style.color = '#f87171';
+    authError.textContent = error.message;
+  } finally {
+    authSubmitBtn.disabled = false;
+    authSubmitBtn.textContent = isSignUp ? 'Sign Up' : 'Sign In';
+  }
+});
+
+googleAuthBtn?.addEventListener('click', async () => {
+  try {
     const { error } = await supabaseClient.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: window.location.origin
       }
     });
-    if (error) {
-      if (authError) authError.textContent = error.message;
-    }
-  });
-}
+    if (error) throw error;
+  } catch (error) {
+    authError.textContent = error.message;
+  }
+});
+
+document.getElementById('btn-login')?.addEventListener('click', openModal);
+document.getElementById('btn-logout')?.addEventListener('click', () => {
+  supabaseClient.auth.signOut();
+});
+
+authToggleLink?.addEventListener('click', toggleAuthMode);
+authClose?.addEventListener('click', closeModal);
+
+// Close on outside click (only if allowed)
+authModal?.addEventListener('click', (e) => {
+  if (e.target === authModal) closeModal();
+});
