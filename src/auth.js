@@ -172,6 +172,9 @@ if (btnGoogleAuth) {
   btnGoogleAuth.addEventListener('click', async () => {
     const { error } = await supabaseClient.auth.signInWithOAuth({
       provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
     });
     if (error) {
       if (authError) authError.textContent = error.message;
