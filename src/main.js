@@ -1,34 +1,34 @@
-/* ══════════════════════════════════════════════════════════
-   InvoiceForge — Main Entry Point
-   Initializes all modules on DOM ready
-   ══════════════════════════════════════════════════════════ */
+// src/main.js
+import { initForm } from './form.js';
+import { generatePDF } from './pdf.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Initialize form (accordion, logo upload, line items, summary)
-  InvoiceForm.init();
+    console.log('InvoiceForge initialized');
+    
+    // Initialize Form and Preview
+    initForm();
 
-  // Initial preview render
-  InvoicePreview.update();
-
-  // Generate PDF button
-  document.getElementById('btn-generate-pdf').addEventListener('click', () => {
-    InvoicePDF.generate();
-  });
-
-  // Intersection Observer for scroll-triggered animations
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.style.animationPlayState = 'running';
-          observer.unobserve(entry.target);
+    // PDF Generation
+    const btnGenerate = document.getElementById('btn-generate-pdf');
+    btnGenerate?.addEventListener('click', async () => {
+        btnGenerate.disabled = true;
+        const originalText = btnGenerate.querySelector('span').textContent;
+        btnGenerate.querySelector('span').textContent = 'Generating...';
+        
+        try {
+            await generatePDF();
+        } catch (error) {
+            console.error('PDF Generation failed:', error);
+            alert('Failed to generate PDF. Please try again.');
+        } finally {
+            btnGenerate.disabled = false;
+            btnGenerate.querySelector('span').textContent = originalText;
         }
-      });
-    },
-    { threshold: 0.1 }
-  );
+    });
 
-  document.querySelectorAll('.animate-in').forEach(el => {
-    observer.observe(el);
-  });
+    // Add subtle reveal animations
+    const sections = document.querySelectorAll('.form-section');
+    sections.forEach((s, i) => {
+        s.style.setProperty('--delay', i);
+    });
 });
