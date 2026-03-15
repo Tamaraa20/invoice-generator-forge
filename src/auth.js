@@ -1,110 +1,180 @@
-// Auth Module
-const { createClient } = supabase;
+// src/auth.js
+/* ══════════════════════════════════════════════════════════
+   InvoiceForge — Authentication Logic
+   ══════════════════════════════════════════════════════════ */
 
-const btnLogin = document.getElementById('btn-login');
-const btnLogout = document.getElementById('btn-logout');
-const authModal = document.getElementById('auth-modal');
-const authClose = document.getElementById('auth-close');
-const btnGoogleAuth = document.getElementById('btn-google-auth');
-const authForm = document.getElementById('auth-form');
-const btnAuthToggle = document.getElementById('btn-auth-toggle');
-const authTitle = document.getElementById('auth-title');
-const authSubDesc = document.getElementById('auth-sub-desc');
-const btnAuthSubmit = document.getElementById('btn-auth-submit');
-const authError = document.getElementById('auth-error');
+// supabaseClient is available globally from src/supabase.js
+
+// UI Elements
+const btnLoginNav = document.getElementById('btn-login');
+const btnLogoutNav = document.getElementById('btn-logout');
 const userProfile = document.getElementById('user-profile');
 const userEmailDisplay = document.getElementById('user-email');
+const authModal = document.getElementById('auth-modal');
+const authClose = document.getElementById('auth-close');
+const authForm = document.getElementById('auth-form');
+const authEmailInput = document.getElementById('auth-email');
+const authPassInput = document.getElementById('auth-password');
+const btnAuthSubmit = document.getElementById('btn-auth-submit');
+const btnAuthToggle = document.getElementById('btn-auth-toggle'); // Note: Initially null until injected
+const btnGoogleAuth = document.getElementById('btn-google-auth');
+const authTitle = document.getElementById('auth-title');
+const authSubDesc = document.getElementById('auth-sub-desc');
+const authFooter = document.getElementById('auth-footer');
+const authError = document.getElementById('auth-error');
 
-let isSignUp = false;
+let isSignUpMode = false;
 
-function initAuth() {
-  const supabaseClient = window.supabaseClient;
+// Check current session on load
+checkSession();
 
-  // Toggle Modal
-  btnLogin.onclick = () => {
-    authModal.classList.add('active');
-    document.body.style.overflow = 'hidden';
-  };
+// Listen for auth state changes
+supabaseClient.auth.onAuthStateChange((event, session) => {
+  updateUI(session?.user);
+});
 
-  authClose.onclick = () => {
-    authModal.classList.remove('active');
-    document.body.style.overflow = '';
-  };
-
-  // Switch between Login / Signup
-  btnAuthToggle.onclick = () => {
-    isSignUp = !isSignUp;
-    authTitle.textContent = isSignUp ? "Create Account" : "Welcome Back";
-    authSubDesc.textContent = isSignUp ? "Start generating professional invoices" : "Sign in to access your invoices";
-    btnAuthSubmit.textContent = isSignUp ? "Sign Up" : "Sign In";
-    btnAuthToggle.textContent = isSignUp ? "Sign In" : "Sign Up";
-    authForm.parentElement.querySelector('.auth-footer').childNodes[0].textContent = isSignUp ? "Already have an account? " : "Don't have an account? ";
-  };
-
-  // Google Auth
-  btnGoogleAuth.onclick = async () => {
-    const { error } = await supabaseClient.auth.signInWithOAuth({
-      provider: 'google',
-    });
-    if (error) showError(error.message);
-  };
-
-  // Form Submit
-  authForm.onsubmit = async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('auth-email').value;
-    const password = document.getElementById('auth-password').value;
-    
-    setLoading(true);
-    authError.style.display = 'none';
-
-    try {
-      if (isSignUp) {
-        const { error } = await supabaseClient.auth.signUp({ email, password });
-        if (error) throw error;
-        alert("Verification email sent! Please check your inbox.");
-      } else {
-        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      }
-      authModal.classList.remove('active');
-      document.body.style.overflow = '';
-    } catch (err) {
-      showError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Listen for auth changes
-  supabaseClient.auth.onAuthStateChange((event, session) => {
-    updateUI(session?.user);
-  });
+async function checkSession() {
+  const { data: { session }, error } = await supabaseClient.auth.getSession();
+  if (session) {
+    updateUI(session.user);
+  } else {
+    updateUI(null);
+  }
 }
 
 function updateUI(user) {
   if (user) {
-    btnLogin.classList.add('hidden');
-    userProfile.classList.remove('hidden');
-    userEmailDisplay.textContent = user.email;
+    if (btnLoginNav) btnLoginNav.style.display = 'none';
+    if (userProfile) {
+      userProfile.classList.remove('hidden');
+      userProfile.style.display = 'flex';
+    }
+    if (userEmailDisplay) userEmailDisplay.textContent = user.email;
+    closeModal();
   } else {
-    btnLogin.classList.remove('hidden');
-    userProfile.classList.add('hidden');
+    if (btnLoginNav) btnLoginNav.style.display = 'flex';
+    if (userProfile) {
+      userProfile.classList.add('hidden');
+      userProfile.style.display = 'none';
+    }
+    if (userEmailDisplay) userEmailDisplay.textContent = '';
   }
 }
 
-function showError(msg) {
-  authError.textContent = msg;
-  authError.style.display = 'block';
+// Modal logic
+function openModal() {
+  if (authModal) {
+    authModal.classList.add('visible');
+    if (authError) authError.textContent = '';
+    if (authForm) authForm.reset();
+  }
 }
 
-function setLoading(loading) {
-  btnAuthSubmit.disabled = loading;
-  btnAuthSubmit.textContent = loading ? "Processing..." : (isSignUp ? "Sign Up" : "Sign In");
+function closeModal() {
+  if (authModal) authModal.classList.remove('visible');
 }
 
-btnLogout.onclick = async () => {
-    await window.supabaseClient.auth.signOut();
-};
+if (btnLoginNav) {
+  btnLoginNav.addEventListener('click', (e) => {
+    e.preventDefault();
+    isSignUpMode = false;
+    updateModalMode();
+    openModal();
+  });
+}
 
-window.addEventListener('DOMContentLoaded', initAuth);
+if (authClose) {
+  authClose.addEventListener('click', closeModal);
+}
+
+if (authModal) {
+  authModal.addEventListener('click', (e) => {
+    if (e.target === authModal) closeModal();
+  });
+}
+
+if (btnAuthToggle) {
+  btnAuthToggle.addEventListener('click', () => {
+    isSignUpMode = !isSignUpMode;
+    updateModalMode();
+  });
+}
+
+function updateModalMode() {
+  if (authError) authError.textContent = '';
+  if (isSignUpMode) {
+    if (authTitle) authTitle.textContent = 'Create an Account';
+    if (btnAuthSubmit) btnAuthSubmit.innerHTML = 'Sign Up';
+    if (authSubDesc) authSubDesc.textContent = 'Sign up to start creating invoices';
+    if (authFooter) authFooter.innerHTML = "Already have an account? <span class=\"auth-toggle-link\" id=\"btn-auth-toggle\">Sign In</span>";
+  } else {
+    if (authTitle) authTitle.textContent = 'Welcome Back';
+    if (btnAuthSubmit) btnAuthSubmit.innerHTML = 'Sign In';
+    if (authSubDesc) authSubDesc.textContent = 'Sign in to access your invoices';
+    if (authFooter) authFooter.innerHTML = "Don't have an account? <span class=\"auth-toggle-link\" id=\"btn-auth-toggle\">Sign Up</span>";
+  }
+  
+  // Re-attach listener to the newly injected toggle span
+  const newToggle = document.getElementById('btn-auth-toggle');
+  if (newToggle) {
+    newToggle.addEventListener('click', () => {
+      isSignUpMode = !isSignUpMode;
+      updateModalMode();
+    });
+  }
+}
+
+// Form submission (Email/Password)
+if (authForm) {
+  authForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = authEmailInput.value;
+    const password = authPassInput.value;
+
+    authError.textContent = '';
+    btnAuthSubmit.disabled = true;
+
+    if (isSignUpMode) {
+      const { data, error } = await supabaseClient.auth.signUp({ email, password });
+      if (error) {
+        authError.textContent = error.message;
+      } else {
+        // usually successful signup requires email confirmation, so inform user
+        if (data?.user?.identities?.length === 0) {
+           authError.textContent = 'Account exists or error occurred.';
+        } else {
+           alert("Signup complete. Check your email or try logging in.");
+           closeModal();
+        }
+      }
+    } else {
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) {
+        authError.textContent = error.message;
+      } else {
+        closeModal();
+      }
+    }
+    btnAuthSubmit.disabled = false;
+  });
+}
+
+// Logout
+if (btnLogoutNav) {
+  btnLogoutNav.addEventListener('click', async () => {
+    const { error } = await supabaseClient.auth.signOut();
+    if (error) console.error('Error signing out:', error.message);
+  });
+}
+
+// Google Auth
+if (btnGoogleAuth) {
+  btnGoogleAuth.addEventListener('click', async () => {
+    const { error } = await supabaseClient.auth.signInWithOAuth({
+      provider: 'google',
+    });
+    if (error) {
+      if (authError) authError.textContent = error.message;
+    }
+  });
+}

@@ -1,34 +1,34 @@
-/**
- * Main Entry Point
- * Initializes all modules and globals
- */
+/* ══════════════════════════════════════════════════════════
+   InvoiceForge — Main Entry Point
+   Initializes all modules on DOM ready
+   ══════════════════════════════════════════════════════════ */
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Initialize Form
-    const invoiceForm = new window.InvoiceForm();
-    
-    // 2. Initialize Preview
-    const invoicePreview = new window.InvoicePreview();
-    
-    // 3. Setup event listeners for Global buttons
-    const btnNew = document.getElementById('btn-new-invoice');
-    const btnGenerate = document.getElementById('btn-generate-pdf');
+  // Initialize form (accordion, logo upload, line items, summary)
+  InvoiceForm.init();
 
-    btnNew.addEventListener('click', () => {
-        if(confirm("Start a new invoice? All current data will be lost.")) {
-            invoiceForm.reset();
+  // Initial preview render
+  InvoicePreview.update();
+
+  // Generate PDF button
+  document.getElementById('btn-generate-pdf').addEventListener('click', () => {
+    InvoicePDF.generate();
+  });
+
+  // Intersection Observer for scroll-triggered animations
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.style.animationPlayState = 'running';
+          observer.unobserve(entry.target);
         }
-    });
+      });
+    },
+    { threshold: 0.1 }
+  );
 
-    btnGenerate.addEventListener('click', async () => {
-        const data = invoiceForm.getData();
-        const pdfService = new window.PDFService();
-        await pdfService.generatePackage(data);
-    });
-
-    // 4. Initialize animations / Scroll effects
-    const sections = document.querySelectorAll('.form-section');
-    sections.forEach((sec, idx) => {
-        sec.style.setProperty('--delay', `${idx * 0.1}s`);
-    });
+  document.querySelectorAll('.animate-in').forEach(el => {
+    observer.observe(el);
+  });
 });
