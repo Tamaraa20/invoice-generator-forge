@@ -10,6 +10,7 @@ const btnLoginNav = document.getElementById('btn-login');
 const btnLogoutNav = document.getElementById('btn-logout');
 const userProfile = document.getElementById('user-profile');
 const userEmailDisplay = document.getElementById('user-email');
+const appContainer = document.getElementById('app');
 const authModal = document.getElementById('auth-modal');
 const authClose = document.getElementById('auth-close');
 const authForm = document.getElementById('auth-form');
@@ -44,20 +45,25 @@ async function checkSession() {
 
 function updateUI(user) {
   if (user) {
+    if (appContainer) appContainer.style.display = 'grid';
     if (btnLoginNav) btnLoginNav.style.display = 'none';
     if (userProfile) {
       userProfile.classList.remove('hidden');
       userProfile.style.display = 'flex';
     }
     if (userEmailDisplay) userEmailDisplay.textContent = user.email;
+    if (authClose) authClose.style.display = 'block';
     closeModal();
   } else {
+    if (appContainer) appContainer.style.display = 'none';
     if (btnLoginNav) btnLoginNav.style.display = 'flex';
     if (userProfile) {
       userProfile.classList.add('hidden');
       userProfile.style.display = 'none';
     }
     if (userEmailDisplay) userEmailDisplay.textContent = '';
+    if (authClose) authClose.style.display = 'none';
+    openModal();
   }
 }
 
@@ -70,8 +76,11 @@ function openModal() {
   }
 }
 
-function closeModal() {
-  if (authModal) authModal.classList.remove('visible');
+async function closeModal() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (authModal && session) {
+    authModal.classList.remove('visible');
+  }
 }
 
 if (btnLoginNav) {

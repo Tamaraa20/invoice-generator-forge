@@ -195,7 +195,7 @@ body::after {
   max-width: 1520px;
   margin: 0 auto;
   padding: 28px 32px 60px;
-  display: grid;
+  display: none; /* Hidden by default for login-first flow */
   grid-template-columns: 1fr 1fr;
   gap: 36px;
   align-items: start;
@@ -497,8 +497,7 @@ body::after {
 
 .add-item-btn {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: center; gap: 8px;
   margin-top: 12px;
   padding: 10px 18px;
   background: rgba(56, 189, 248, 0.06);
